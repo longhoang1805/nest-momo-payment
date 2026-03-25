@@ -37,6 +37,10 @@ export class PaymentService {
     private readonly ordersRepo: OrdersRepository,
   ) {}
 
+  private createSignature(rawSignature: string, secretKey: string): string {
+    return crypto.createHmac('sha256', secretKey).update(rawSignature).digest('hex');
+  }
+
   async createMomoPayment(orderId: number) {
     const order = await this.ordersService.getOrderOrThrow(orderId);
 
@@ -71,7 +75,7 @@ export class PaymentService {
       `&requestId=${requestId}` +
       `&requestType=${requestType}`;
 
-    const signature = crypto.createHmac('sha256', secretKey).update(rawSignature).digest('hex');
+    const signature = this.createSignature(rawSignature, secretKey);
 
     const requestBody = {
       partnerCode,
@@ -151,10 +155,7 @@ export class PaymentService {
       `&resultCode=${resultCode}` +
       `&transId=${transId}`;
 
-    const expectedSignature = crypto
-      .createHmac('sha256', secretKey)
-      .update(rawSignature)
-      .digest('hex');
+    const expectedSignature = this.createSignature(rawSignature, secretKey);
 
     if (expectedSignature !== receivedSignature) {
       this.logger.warn('MoMo IPN: Invalid signature');
