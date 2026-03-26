@@ -303,7 +303,7 @@ function UsersTable({ users }: { users: any[] }) {
     <>
       <div className="px-6 py-5 border-b border-slate-100">
         <div className="flex flex-wrap gap-4 items-end">
-          <div className="flex-1 min-w-[200px]">
+          <div className="flex-1 min-w-50">
             <label className="text-sm font-medium text-slate-600 mb-1.5 block">Search by username</label>
             <Input
               placeholder="e.g. john"
@@ -443,7 +443,7 @@ function OrdersTable({ orders, users }: { orders: any[]; users: any[] }) {
       <div className="px-6 py-5 border-b border-slate-100 space-y-5">
         {/* Row 1: search + status pills */}
         <div className="flex flex-wrap gap-4 items-end">
-          <div className="flex-1 min-w-[200px]">
+          <div className="flex-1 min-w-50">
             <label className="text-sm font-medium text-slate-600 mb-1.5 block">Search by username</label>
             <Input
               placeholder="e.g. john"
