@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { Loader2, ArrowLeft, CreditCard } from 'lucide-react'
+import { Loader2, ArrowLeft, CreditCard, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -9,6 +9,31 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { api } from '@/lib/api'
 import { useCartContext } from '@/contexts/cart.context'
+import { cn } from '@/lib/utils'
+import momoLogo from '@/assets/momo-logo.png'
+import zalopayLogo from '@/assets/zalopay-logo.png'
+
+type PaymentMethod = 'momo' | 'zalopay'
+
+const PAYMENT_METHODS: {
+  id: PaymentMethod
+  label: string
+  description: string
+  logoUrl: string
+}[] = [
+  {
+    id: 'momo',
+    label: 'MoMo',
+    description: 'Scan QR code with MoMo app',
+    logoUrl: momoLogo,
+  },
+  {
+    id: 'zalopay',
+    label: 'ZaloPay',
+    description: 'Scan QR code with ZaloPay app',
+    logoUrl: zalopayLogo,
+  },
+]
 
 function formatPrice(price: number) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price)
@@ -19,6 +44,7 @@ export function CheckoutPage() {
   const { refreshCart } = useCartContext()
 
   const [form, setForm] = useState({ firstName: '', lastName: '', address: '' })
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('momo')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -42,7 +68,7 @@ export function CheckoutPage() {
       const res = await api.post('/orders', form)
       const order = res.data.data
       refreshCart()
-      navigate(`/payment/${order.id}`)
+      navigate(`/payment/${order.id}?method=${paymentMethod}`)
     } catch (err: any) {
       const msg = err.response?.data?.message
       setError(Array.isArray(msg) ? msg.join(', ') : (msg ?? 'Failed to create order'))
@@ -150,36 +176,57 @@ export function CheckoutPage() {
               <span className="text-primary">{formatPrice(cart.total)}</span>
             </div>
 
-            <div className="pt-4 space-y-3">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground border rounded-lg p-3 bg-slate-50">
-                <img
-                  src="https://upload.wikimedia.org/wikipedia/vi/f/fe/MoMo_Logo.png"
-                  alt="MoMo"
-                  className="h-8 w-8 object-contain"
-                  onError={(e) => {
-                    ;(e.target as HTMLImageElement).style.display = 'none'
-                  }}
-                />
-                <div>
-                  <p className="font-medium text-foreground text-sm">Pay with MoMo</p>
-                  <p className="text-xs">Scan QR code to complete payment</p>
-                </div>
+            {/* Payment method selector */}
+            <div className="pt-2 space-y-2">
+              <p className="text-sm font-medium">Payment Method</p>
+              <div className="grid grid-cols-2 gap-2">
+                {PAYMENT_METHODS.map((method) => (
+                  <button
+                    key={method.id}
+                    type="button"
+                    onClick={() => setPaymentMethod(method.id)}
+                    className={cn(
+                      'relative flex items-center gap-2 rounded-lg border p-3 text-left transition-all',
+                      paymentMethod === method.id
+                        ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                        : 'border-border bg-slate-50 hover:border-primary/50',
+                    )}
+                  >
+                    <img
+                      src={method.logoUrl}
+                      alt={method.label}
+                      className="h-8 w-8 object-contain shrink-0"
+                      onError={(e) => {
+                        ;(e.target as HTMLImageElement).style.display = 'none'
+                      }}
+                    />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium leading-tight">{method.label}</p>
+                      <p className="text-xs text-muted-foreground leading-tight">
+                        {method.description}
+                      </p>
+                    </div>
+                    {paymentMethod === method.id && (
+                      <CheckCircle2 className="absolute top-2 right-2 h-4 w-4 text-primary shrink-0" />
+                    )}
+                  </button>
+                ))}
               </div>
-
-              <Button
-                type="submit"
-                form="checkout-form"
-                className="w-full gap-2 cursor-pointer"
-                disabled={loading}
-              >
-                {loading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <CreditCard className="h-4 w-4" />
-                )}
-                {loading ? 'Creating Order...' : 'Place Order & Pay'}
-              </Button>
             </div>
+
+            <Button
+              type="submit"
+              form="checkout-form"
+              className="w-full gap-2 cursor-pointer"
+              disabled={loading}
+            >
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <CreditCard className="h-4 w-4" />
+              )}
+              {loading ? 'Creating Order...' : 'Place Order & Pay'}
+            </Button>
           </CardContent>
         </Card>
       </div>

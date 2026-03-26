@@ -16,31 +16,75 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { api } from '@/lib/api'
+import momoLogo from '@/assets/momo-logo.png'
+import zalopayLogo from '@/assets/zalopay-logo.png'
 
 function formatPrice(price: number) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price)
 }
 
 type PaymentStatus = 'idle' | 'creating' | 'pending' | 'success' | 'failed'
+type PaymentMethod = 'momo' | 'zalopay'
+
+interface MomoPaymentData {
+  payUrl: string
+  qrCodeUrl: string
+  momoOrderId: string
+  amount: number
+}
+
+interface ZaloPayPaymentData {
+  orderUrl: string
+  qrCode?: string
+  appTransId: string
+  amount: number
+}
+
+const PROVIDER_CONFIG: Record<
+  PaymentMethod,
+  { label: string; color: string; logoUrl: string; instructions: string[] }
+> = {
+  momo: {
+    label: 'MoMo',
+    color: '#ae2070',
+    logoUrl: momoLogo,
+    instructions: [
+      'Open the MoMo app on your phone',
+      'Tap the QR scanner icon',
+      'Scan the QR code above',
+      'Confirm the payment in your app',
+    ],
+  },
+  zalopay: {
+    label: 'ZaloPay',
+    color: '#0068ff',
+    logoUrl: zalopayLogo,
+    instructions: [
+      'Open the ZaloPay app on your phone',
+      'Tap the QR scanner icon',
+      'Scan the QR code above',
+      'Confirm the payment in your app',
+    ],
+  },
+}
 
 export function PaymentPage() {
   const { orderId } = useParams<{ orderId: string }>()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
 
+  const method = (searchParams.get('method') ?? 'momo') as PaymentMethod
+  const provider = PROVIDER_CONFIG[method] ?? PROVIDER_CONFIG.momo
+
   const [status, setStatus] = useState<PaymentStatus>('idle')
-  const [momoData, setMomoData] = useState<{
-    payUrl: string
-    qrCodeUrl: string
-    momoOrderId: string
-    amount: number
-  } | null>(null)
+  const [momoData, setMomoData] = useState<MomoPaymentData | null>(null)
+  const [zaloPayData, setZaloPayData] = useState<ZaloPayPaymentData | null>(null)
   const [pollCount, setPollCount] = useState(0)
 
-  // Check if this is a callback from MoMo
-  const callbackResultCode = searchParams.get('resultCode')
+  // Callback result params
+  const callbackResultCode = searchParams.get('resultCode') // MoMo: '0' = success
+  const callbackStatus = searchParams.get('status') // ZaloPay: '1' = success
 
-  // Fetch order details
   const { data: orderData, refetch: refetchOrder } = useQuery({
     queryKey: ['order', orderId],
     queryFn: () => api.get(`/orders/${orderId}`).then((r) => r.data.data),
@@ -59,12 +103,22 @@ export function PaymentPage() {
     }
   }, [callbackResultCode, refetchOrder])
 
+  // Handle ZaloPay redirect callback
+  useEffect(() => {
+    if (callbackStatus === '1') {
+      setStatus('success')
+      refetchOrder()
+    } else if (callbackStatus && callbackStatus !== '1') {
+      setStatus('failed')
+    }
+  }, [callbackStatus, refetchOrder])
+
   // Check if order is already paid on load
   useEffect(() => {
     if (order?.status === 'paid') setStatus('success')
   }, [order?.status])
 
-  // Poll for payment status
+  // Poll for payment status while pending
   useEffect(() => {
     if (status !== 'pending') return
     const interval = setInterval(async () => {
@@ -75,15 +129,14 @@ export function PaymentPage() {
           clearInterval(interval)
         }
       } catch {
-        // ignore
+        // ignore poll errors
       }
       setPollCount((c) => c + 1)
     }, 3000)
     return () => clearInterval(interval)
   }, [status, orderId])
 
-  // Create MoMo payment
-  const createPaymentMutation = useMutation({
+  const createMomoPaymentMutation = useMutation({
     mutationFn: () => api.post(`/payment/momo/${orderId}`).then((r) => r.data.data),
     onMutate: () => setStatus('creating'),
     onSuccess: (data) => {
@@ -92,6 +145,38 @@ export function PaymentPage() {
     },
     onError: () => setStatus('failed'),
   })
+
+  const createZaloPayPaymentMutation = useMutation({
+    mutationFn: () => api.post(`/payment/zalopay/${orderId}`).then((r) => r.data.data),
+    onMutate: () => setStatus('creating'),
+    onSuccess: (data) => {
+      setZaloPayData(data)
+      setStatus('pending')
+    },
+    onError: () => setStatus('failed'),
+  })
+
+  const handleCreatePayment = () => {
+    if (method === 'zalopay') {
+      createZaloPayPaymentMutation.mutate()
+    } else {
+      createMomoPaymentMutation.mutate()
+    }
+  }
+
+  const handleReset = () => {
+    setStatus('idle')
+    setMomoData(null)
+    setZaloPayData(null)
+    setPollCount(0)
+  }
+
+  const payUrl = method === 'zalopay' ? zaloPayData?.orderUrl : momoData?.payUrl
+  const qrValue =
+    method === 'zalopay'
+      ? (zaloPayData?.qrCode ?? zaloPayData?.orderUrl ?? '')
+      : (momoData?.payUrl ?? '')
+  const amount = method === 'zalopay' ? zaloPayData?.amount : momoData?.amount
 
   if (!order) {
     return (
@@ -112,9 +197,7 @@ export function PaymentPage() {
         </div>
         <div>
           <h1 className="text-2xl font-bold text-green-700">Payment Successful!</h1>
-          <p className="text-muted-foreground mt-2">
-            Your order #{orderId} has been confirmed.
-          </p>
+          <p className="text-muted-foreground mt-2">Your order #{orderId} has been confirmed.</p>
         </div>
         <Card className="border-0 shadow-sm text-left">
           <CardContent className="p-4 space-y-2">
@@ -128,7 +211,7 @@ export function PaymentPage() {
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Deliver to</span>
-              <span className="font-medium text-right max-w-[200px]">
+              <span className="font-medium text-right max-w-50">
                 {order.firstName} {order.lastName}, {order.address}
               </span>
             </div>
@@ -159,13 +242,7 @@ export function PaymentPage() {
             <ArrowLeft className="h-4 w-4" />
             Back to Cart
           </Button>
-          <Button
-            onClick={() => {
-              setStatus('idle')
-              setMomoData(null)
-            }}
-            className="flex-1 gap-2"
-          >
+          <Button onClick={handleReset} className="flex-1 gap-2">
             <RefreshCw className="h-4 w-4" />
             Try Again
           </Button>
@@ -212,138 +289,129 @@ export function PaymentPage() {
         </CardContent>
       </Card>
 
-      {/* MoMo Payment */}
+      {/* Idle: prompt to generate QR */}
       {status === 'idle' && (
         <Card className="border-0 shadow-sm">
           <CardContent className="p-6 text-center space-y-4">
             <div className="flex items-center justify-center gap-3">
               <img
-                src="https://upload.wikimedia.org/wikipedia/vi/f/fe/MoMo_Logo.png"
-                alt="MoMo"
+                src={provider.logoUrl}
+                alt={provider.label}
                 className="h-12 w-12 object-contain"
                 onError={(e) => {
                   ;(e.target as HTMLImageElement).style.display = 'none'
                 }}
               />
               <div className="text-left">
-                <p className="font-semibold text-lg">Pay with MoMo</p>
+                <p className="font-semibold text-lg">Pay with {provider.label}</p>
                 <p className="text-sm text-muted-foreground">Fast & secure mobile payment</p>
               </div>
             </div>
             <p className="text-sm text-muted-foreground">
-              Click below to generate a QR code. Scan it with your MoMo app to complete payment.
+              Click below to generate a QR code. Scan it with your {provider.label} app to complete
+              payment.
             </p>
             <Button
-              className="w-full gap-2 bg-[#ae2070] hover:bg-[#8f1a5c] text-white"
+              className="w-full gap-2"
+              style={{ backgroundColor: provider.color }}
               size="lg"
-              onClick={() => createPaymentMutation.mutate()}
+              onClick={handleCreatePayment}
             >
               <Smartphone className="h-5 w-5" />
-              Generate MoMo QR Code
+              Generate {provider.label} QR Code
             </Button>
           </CardContent>
         </Card>
       )}
 
+      {/* Creating: spinner */}
       {status === 'creating' && (
         <Card className="border-0 shadow-sm">
           <CardContent className="p-12 text-center">
-            <Loader2 className="h-10 w-10 animate-spin text-[#ae2070] mx-auto" />
+            <Loader2 className="h-10 w-10 animate-spin mx-auto" style={{ color: provider.color }} />
             <p className="mt-4 text-muted-foreground">Generating QR code...</p>
           </CardContent>
         </Card>
       )}
 
-      {status === 'pending' && momoData && (
+      {/* Pending: QR code + polling */}
+      {status === 'pending' && qrValue && (
         <Card className="border-0 shadow-md overflow-hidden">
-          <div className="bg-[#ae2070] p-4 text-white text-center">
+          <div className="p-4 text-white text-center" style={{ backgroundColor: provider.color }}>
             <div className="flex items-center justify-center gap-2">
               <img
-                src="https://upload.wikimedia.org/wikipedia/vi/f/fe/MoMo_Logo.png"
-                alt="MoMo"
+                src={provider.logoUrl}
+                alt={provider.label}
                 className="h-8 w-8 object-contain brightness-0 invert"
                 onError={(e) => {
                   ;(e.target as HTMLImageElement).style.display = 'none'
                 }}
               />
-              <span className="text-lg font-bold">MoMo Payment</span>
+              <span className="text-lg font-bold">{provider.label} Payment</span>
             </div>
-            <p className="text-sm mt-1 text-white/80">
-              Amount: <strong>{formatPrice(momoData.amount)}</strong>
-            </p>
+            {amount !== undefined && (
+              <p className="text-sm mt-1 text-white/80">
+                Amount: <strong>{formatPrice(amount)}</strong>
+              </p>
+            )}
           </div>
 
           <CardContent className="p-6 text-center space-y-4">
             <div className="flex items-center justify-center gap-2 text-sm">
               <Badge variant="secondary" className="gap-1.5">
                 <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#ae2070] opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#ae2070]" />
+                  <span
+                    className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
+                    style={{ backgroundColor: provider.color }}
+                  />
+                  <span
+                    className="relative inline-flex rounded-full h-2 w-2"
+                    style={{ backgroundColor: provider.color }}
+                  />
                 </span>
                 Waiting for payment...
               </Badge>
               {pollCount > 0 && (
-                <span className="text-xs text-muted-foreground">
-                  Checking... ({pollCount})
-                </span>
+                <span className="text-xs text-muted-foreground">Checking... ({pollCount})</span>
               )}
             </div>
 
             {/* QR Code */}
             <div className="flex justify-center">
               <div className="p-4 bg-white rounded-2xl shadow-inner border">
-                <QRCodeSVG
-                  value={momoData.payUrl}
-                  size={200}
-                  level="H"
-                  includeMargin={false}
-                />
+                <QRCodeSVG value={qrValue} size={200} level="H" includeMargin={false} />
               </div>
             </div>
 
             <div className="space-y-1 text-sm text-muted-foreground">
               <p className="font-medium text-foreground">How to pay:</p>
               <ol className="text-left space-y-1 text-xs max-w-xs mx-auto">
-                <li className="flex gap-2">
-                  <span className="flex-shrink-0 font-bold text-[#ae2070]">1.</span>
-                  Open the MoMo app on your phone
-                </li>
-                <li className="flex gap-2">
-                  <span className="flex-shrink-0 font-bold text-[#ae2070]">2.</span>
-                  Tap the QR scanner icon
-                </li>
-                <li className="flex gap-2">
-                  <span className="flex-shrink-0 font-bold text-[#ae2070]">3.</span>
-                  Scan the QR code above
-                </li>
-                <li className="flex gap-2">
-                  <span className="flex-shrink-0 font-bold text-[#ae2070]">4.</span>
-                  Confirm the payment in your app
-                </li>
+                {provider.instructions.map((step, i) => (
+                  <li key={i} className="flex gap-2">
+                    <span className="shrink-0 font-bold" style={{ color: provider.color }}>
+                      {i + 1}.
+                    </span>
+                    {step}
+                  </li>
+                ))}
               </ol>
             </div>
 
             <Separator />
 
             <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1"
-                onClick={() => window.open(momoData.payUrl, '_blank')}
-              >
-                <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
-                Open in Browser
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1"
-                onClick={() => {
-                  setStatus('idle')
-                  setMomoData(null)
-                }}
-              >
+              {payUrl && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => window.open(payUrl, '_blank')}
+                >
+                  <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                  Open in Browser
+                </Button>
+              )}
+              <Button variant="outline" size="sm" className="flex-1" onClick={handleReset}>
                 <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
                 New QR
               </Button>

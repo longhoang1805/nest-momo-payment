@@ -48,4 +48,15 @@ export class OrdersRepository {
   ): Promise<void> {
     await this.orderModel.update(fields, { where: { id } });
   }
+
+  async updateZaloPayFields(
+    id: number,
+    fields: {
+      zaloPayTransId?: string;
+      zaloPayOrderUrl?: string;
+      zaloPayQrCode?: string;
+    },
+  ): Promise<void> {
+    await this.orderModel.update(fields, { where: { id } });
+  }
 }

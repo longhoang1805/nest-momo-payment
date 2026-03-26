@@ -12,6 +12,7 @@ import { CartPage } from '@/features/cart/pages/CartPage'
 import { CheckoutPage } from '@/features/checkout/pages/CheckoutPage'
 import { PaymentPage } from '@/features/payment/pages/PaymentPage'
 import { PaymentCallbackPage } from '@/features/payment/pages/PaymentCallbackPage'
+import { ZaloPayCallbackPage } from '@/features/payment/pages/ZaloPayCallbackPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -33,6 +34,7 @@ export default function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/payment/callback" element={<PaymentCallbackPage />} />
+              <Route path="/payment/zalopay/callback" element={<ZaloPayCallbackPage />} />
 
               {/* Protected routes */}
               <Route

@@ -57,6 +57,15 @@ export class Order extends Model {
   @Column({ type: DataType.TEXT })
   momoQrCodeUrl: string;
 
+  @Column({ type: DataType.STRING })
+  zaloPayTransId: string;
+
+  @Column({ type: DataType.TEXT })
+  zaloPayOrderUrl: string;
+
+  @Column({ type: DataType.TEXT })
+  zaloPayQrCode: string;
+
   @BelongsTo(() => User)
   user: User;
 

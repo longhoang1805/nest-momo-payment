@@ -27,7 +27,7 @@ import { OrderItem } from './orders/entities/order-item.entity';
         database: config.get('DB_NAME'),
         models: [User, Book, CartItem, Order, OrderItem],
         autoLoadModels: true,
-        synchronize: true,
+        sync: { alter: true },
         logging: false,
       }),
     }),

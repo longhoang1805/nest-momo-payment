@@ -12,6 +12,7 @@ import {
   MOMO_REQUEST_TYPE,
   MOMO_RESULT_CODE,
 } from '../constants/momo.constants';
+import { ZALOPAY_ORDER_ID_PREFIX, ZALOPAY_RESULT_CODE } from '../constants/zalopay.constants';
 
 interface MomoCreateResponse {
   partnerCode: string;
@@ -173,6 +174,121 @@ export class PaymentService {
     }
 
     return { status: 'received' };
+  }
+
+  async createZaloPayPayment(orderId: number) {
+    const order = await this.ordersService.getOrderOrThrow(orderId);
+
+    if (order.status !== OrderStatus.PENDING) {
+      throw new BadRequestException('Order is not in pending state');
+    }
+
+    const appId = this.config.getOrThrow<string>('ZALOPAY_APP_ID');
+    const key1 = this.config.getOrThrow<string>('ZALOPAY_KEY1');
+    const endpoint = this.config.getOrThrow<string>('ZALOPAY_ENDPOINT');
+    const callbackUrl = this.config.getOrThrow<string>('ZALOPAY_CALLBACK_URL');
+    const redirectUrl = this.config.getOrThrow<string>('ZALOPAY_REDIRECT_URL');
+
+    const appTime = Date.now();
+    const now = new Date(appTime + 7 * 60 * 60 * 1000); // GMT+7
+    const datePart = now.toISOString().slice(2, 10).replace(/-/g, ''); // YYMMDD
+    const appTransId = `${datePart}_${ZALOPAY_ORDER_ID_PREFIX}_${orderId}_${appTime}`;
+    const amount = Math.round(order.totalAmount);
+    const appUser = `user_${order.userId}`;
+    const description = `Payment for order #${orderId}`;
+    const embedData = JSON.stringify({ redirecturl: redirectUrl });
+    const item = '[]';
+
+    const rawMac = `${appId}|${appTransId}|${appUser}|${amount}|${appTime}|${embedData}|${item}`;
+    const mac = this.createSignature(rawMac, key1);
+
+    const requestBody = {
+      app_id: Number(appId),
+      app_user: appUser,
+      app_trans_id: appTransId,
+      app_time: appTime,
+      amount,
+      description,
+      item,
+      embed_data: embedData,
+      callback_url: callbackUrl,
+      mac,
+    };
+
+    this.logger.log(`Creating ZaloPay payment for order ${orderId}`);
+
+    const response = await axios.post(endpoint, requestBody);
+    const zaloData = response.data as {
+      return_code: number;
+      return_message: string;
+      order_url?: string;
+      zp_trans_token?: string;
+      order_token?: string;
+      qr_code?: string;
+    };
+
+    if (zaloData.return_code !== ZALOPAY_RESULT_CODE.SUCCESS) {
+      this.logger.error(`ZaloPay error: ${zaloData.return_message}`);
+      throw new BadRequestException(`ZaloPay payment failed: ${zaloData.return_message}`);
+    }
+
+    await this.ordersRepo.updateZaloPayFields(orderId, {
+      zaloPayTransId: appTransId,
+      zaloPayOrderUrl: zaloData.order_url ?? '',
+      zaloPayQrCode: zaloData.qr_code ?? zaloData.order_url ?? '',
+    });
+
+    return {
+      orderId,
+      appTransId,
+      orderUrl: zaloData.order_url,
+      qrCode: zaloData.qr_code,
+      amount,
+      message: zaloData.return_message,
+    };
+  }
+
+  async handleZaloPayCallback(body: { data: string; mac: string; type: number }) {
+    const key2 = this.config.getOrThrow<string>('ZALOPAY_KEY2');
+
+    const expectedMac = this.createSignature(body.data, key2);
+
+    if (expectedMac !== body.mac) {
+      this.logger.warn('ZaloPay callback: Invalid MAC');
+      return { return_code: 2, return_message: 'invalid_mac' };
+    }
+
+    const data = JSON.parse(body.data) as {
+      app_trans_id: string;
+      amount: number;
+      app_id: number;
+    };
+
+    const match = data.app_trans_id.match(/ORDER_(\d+)_/);
+    if (match) {
+      const internalOrderId = parseInt(match[1], 10);
+      await this.ordersService.markAsPaid(internalOrderId);
+      this.logger.log(`Order ${internalOrderId} marked as paid via ZaloPay callback`);
+    }
+
+    return { return_code: 1, return_message: 'success' };
+  }
+
+  async handleZaloPayRedirect(query: Record<string, any>) {
+    const { status, apptransid } = query;
+
+    if (!apptransid) return { status: 'no_transaction' };
+
+    const match = String(apptransid).match(/ORDER_(\d+)_/);
+    if (!match) return { status: 'invalid_trans_id' };
+
+    const internalOrderId = parseInt(match[1], 10);
+
+    if (String(status) === String(ZALOPAY_RESULT_CODE.SUCCESS)) {
+      await this.ordersService.markAsPaid(internalOrderId);
+    }
+
+    return { orderId: internalOrderId, status };
   }
 
   async handleCallback(query: Record<string, any>) {
