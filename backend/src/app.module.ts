@@ -7,11 +7,13 @@ import { BooksModule } from './books/books.module';
 import { CartModule } from './cart/cart.module';
 import { OrdersModule } from './orders/orders.module';
 import { PaymentModule } from './payment/payment.module';
+import { AdminModule } from './admin/admin.module';
 import { User } from './users/entities/user.entity';
 import { Book } from './books/entities/book.entity';
 import { CartItem } from './cart/entities/cart-item.entity';
 import { Order } from './orders/entities/order.entity';
 import { OrderItem } from './orders/entities/order-item.entity';
+import { Admin } from './admin/entities/admin.entity';
 
 @Module({
   imports: [
@@ -25,7 +27,7 @@ import { OrderItem } from './orders/entities/order-item.entity';
         username: config.get('DB_USERNAME'),
         password: config.get('DB_PASSWORD'),
         database: config.get('DB_NAME'),
-        models: [User, Book, CartItem, Order, OrderItem],
+        models: [User, Book, CartItem, Order, OrderItem, Admin],
         autoLoadModels: true,
         sync: { alter: true },
         logging: false,
@@ -37,6 +39,7 @@ import { OrderItem } from './orders/entities/order-item.entity';
     CartModule,
     OrdersModule,
     PaymentModule,
+    AdminModule,
   ],
 })
 export class AppModule {}

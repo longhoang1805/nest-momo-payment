@@ -50,6 +50,11 @@ export class OrdersService {
     return this.formatOrder(order);
   }
 
+  async getAllOrders() {
+    const orders = await this.ordersRepo.findAll();
+    return orders.map(this.formatOrder);
+  }
+
   async markAsPaid(orderId: number) {
     await this.ordersRepo.updateStatus(orderId, OrderStatus.PAID);
     return this.getOrderOrThrow(orderId);

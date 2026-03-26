@@ -13,6 +13,8 @@ import { CheckoutPage } from '@/features/checkout/pages/CheckoutPage'
 import { PaymentPage } from '@/features/payment/pages/PaymentPage'
 import { PaymentCallbackPage } from '@/features/payment/pages/PaymentCallbackPage'
 import { ZaloPayCallbackPage } from '@/features/payment/pages/ZaloPayCallbackPage'
+import { AdminLoginPage } from '@/features/auth/admin/AdminLoginPage'
+import { AdminDashboardPage } from '@/features/dashboard/admin/AdminDashboardPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -53,6 +55,10 @@ export default function App() {
 
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
+
+              {/* Admin */}
+              <Route path="/admin/login" element={<AdminLoginPage />} />
+              <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
             </Routes>
           </BrowserRouter>
         </CartProvider>

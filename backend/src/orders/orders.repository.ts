@@ -19,6 +19,13 @@ export class OrdersRepository {
     await this.orderItemModel.bulkCreate(items as any[]);
   }
 
+  async findAll(): Promise<Order[]> {
+    return this.orderModel.findAll({
+      include: [{ model: OrderItem, include: [Book] }],
+      order: [['createdAt', 'DESC']],
+    });
+  }
+
   async findByUser(userId: number): Promise<Order[]> {
     return this.orderModel.findAll({
       where: { userId },

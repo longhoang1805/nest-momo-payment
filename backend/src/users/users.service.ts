@@ -6,6 +6,10 @@ import { User } from './entities/user.entity';
 export class UsersService {
   constructor(private readonly usersRepo: UsersRepository) {}
 
+  async findAll(): Promise<User[]> {
+    return this.usersRepo.findAll();
+  }
+
   async findByUsername(username: string): Promise<User | null> {
     return this.usersRepo.findByUsername(username);
   }

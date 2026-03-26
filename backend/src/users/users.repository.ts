@@ -6,6 +6,10 @@ import { User } from './entities/user.entity';
 export class UsersRepository {
   constructor(@InjectModel(User) private readonly userModel: typeof User) {}
 
+  async findAll(): Promise<User[]> {
+    return this.userModel.findAll({ order: [['createdAt', 'DESC']] });
+  }
+
   async findByUsername(username: string): Promise<User | null> {
     return this.userModel.findOne({ where: { username } });
   }
