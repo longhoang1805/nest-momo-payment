@@ -27,4 +27,21 @@ export class BooksRepository {
   async bulkCreate(books: Partial<Book>[]): Promise<void> {
     await this.bookModel.bulkCreate(books as any[], { ignoreDuplicates: true });
   }
+
+  async create(data: Partial<Book>): Promise<Book> {
+    return this.bookModel.create(data as any);
+  }
+
+  async update(id: number, data: Partial<Book>): Promise<Book | null> {
+    const book = await this.findById(id);
+    if (!book) return null;
+    return book.update(data);
+  }
+
+  async delete(id: number): Promise<boolean> {
+    const book = await this.findById(id);
+    if (!book) return false;
+    await book.destroy();
+    return true;
+  }
 }

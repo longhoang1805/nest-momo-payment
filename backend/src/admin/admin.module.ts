@@ -9,6 +9,7 @@ import { AdminController } from './admin.controller';
 import { JwtAdminStrategy } from './strategies/jwt-admin.strategy';
 import { UsersModule } from '../users/users.module';
 import { OrdersModule } from '../orders/orders.module';
+import { BooksModule } from '../books/books.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { OrdersModule } from '../orders/orders.module';
     }),
     UsersModule,
     OrdersModule,
+    BooksModule,
   ],
   controllers: [AdminController],
   providers: [AdminService, JwtAdminStrategy],

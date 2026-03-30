@@ -1,6 +1,8 @@
 import { useState } from 'react'
+import { Plus } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { useQuery } from '@tanstack/react-query'
-import { Users, ShoppingCart, LogOut, BookOpen, TrendingUp } from 'lucide-react'
+import { Users, ShoppingCart, LogOut, BookOpen, TrendingUp, Library } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import {
   SidebarProvider,
@@ -15,10 +17,18 @@ import {
 import { api } from '@/lib/api'
 import { UsersTable } from './components/UsersTable'
 import { OrdersTable } from './components/OrdersTable'
+import { BooksTable } from './components/BooksTable'
 import { fmt, type Tab } from './types'
+
+const TAB_LABELS: Record<Tab, string> = {
+  users: 'Users',
+  orders: 'Orders',
+  books: 'Books',
+}
 
 export function AdminDashboardPage() {
   const [activeTab, setActiveTab] = useState<Tab>('users')
+  const [openCreateBook, setOpenCreateBook] = useState(false)
   const navigate = useNavigate()
 
   const { data: users = [], isLoading: loadingUsers } = useQuery({
@@ -29,6 +39,11 @@ export function AdminDashboardPage() {
   const { data: orders = [], isLoading: loadingOrders } = useQuery({
     queryKey: ['admin', 'orders'],
     queryFn: () => api.get('/admin/orders').then((r) => r.data.data),
+  })
+
+  const { data: books = [], isLoading: loadingBooks } = useQuery({
+    queryKey: ['admin', 'books'],
+    queryFn: () => api.get('/admin/books').then((r) => r.data.data),
   })
 
   const handleLogout = () => {
@@ -89,6 +104,19 @@ export function AdminDashboardPage() {
                   </span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={activeTab === 'books'}
+                  onClick={() => setActiveTab('books')}
+                  className="rounded-lg text-sm"
+                >
+                  <Library className="h-4 w-4" />
+                  <span>Books</span>
+                  <span className="ml-auto text-xs bg-slate-100 text-slate-600 rounded-full px-2 py-0.5">
+                    {books.length}
+                  </span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarContent>
 
@@ -110,9 +138,7 @@ export function AdminDashboardPage() {
         {/* Main */}
         <main className="flex-1 overflow-auto">
           <div className="bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between">
-            <h1 className="text-2xl font-semibold text-slate-800">
-              {activeTab === 'users' ? 'Users' : 'Orders'}
-            </h1>
+            <h1 className="text-2xl font-semibold text-slate-800">{TAB_LABELS[activeTab]}</h1>
             <p className="text-sm text-muted-foreground">
               {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </p>
@@ -120,7 +146,7 @@ export function AdminDashboardPage() {
 
           <div className="p-8">
             {/* Stat cards */}
-            <div className="grid grid-cols-3 gap-4 mb-8">
+            <div className="grid grid-cols-4 gap-4 mb-8">
               <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-sm font-medium text-muted-foreground">Total Users</p>
@@ -141,6 +167,15 @@ export function AdminDashboardPage() {
               </div>
               <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
                 <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm font-medium text-muted-foreground">Total Books</p>
+                  <div className="h-9 w-9 rounded-lg bg-orange-50 flex items-center justify-center">
+                    <Library className="h-4 w-4 text-orange-600" />
+                  </div>
+                </div>
+                <p className="text-3xl font-bold text-slate-800">{books.length}</p>
+              </div>
+              <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+                <div className="flex items-center justify-between mb-3">
                   <p className="text-sm font-medium text-muted-foreground">Revenue (Paid)</p>
                   <div className="h-9 w-9 rounded-lg bg-green-50 flex items-center justify-center">
                     <TrendingUp className="h-4 w-4 text-green-600" />
@@ -152,10 +187,16 @@ export function AdminDashboardPage() {
 
             {/* Table card */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="px-6 py-4 border-b border-slate-100">
+              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                 <h2 className="text-base font-semibold text-slate-700">
-                  {activeTab === 'users' ? 'All Users' : 'All Orders'}
+                  All {TAB_LABELS[activeTab]}
                 </h2>
+                {activeTab === 'books' && (
+                  <Button size="sm" className="h-8 text-xs gap-1.5" onClick={() => setOpenCreateBook(true)}>
+                    <Plus className="h-3.5 w-3.5" />
+                    Add book
+                  </Button>
+                )}
               </div>
 
               {activeTab === 'users' &&
@@ -170,6 +211,17 @@ export function AdminDashboardPage() {
                   <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">Loading...</div>
                 ) : (
                   <OrdersTable orders={orders} users={users} />
+                ))}
+
+              {activeTab === 'books' &&
+                (loadingBooks ? (
+                  <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">Loading...</div>
+                ) : (
+                  <BooksTable
+                    books={books}
+                    openCreate={openCreateBook}
+                    onCreateClose={() => setOpenCreateBook(false)}
+                  />
                 ))}
             </div>
           </div>

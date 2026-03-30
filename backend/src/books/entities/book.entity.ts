@@ -24,7 +24,7 @@ export class Book extends Model {
   @Column({ type: DataType.TEXT })
   description: string;
 
-  @Column({ type: DataType.STRING })
+  @Column({ type: DataType.TEXT })
   coverImage: string;
 
   @Column({ type: DataType.STRING })

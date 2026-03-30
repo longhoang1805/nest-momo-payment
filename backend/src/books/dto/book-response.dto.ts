@@ -10,6 +10,8 @@ export class BookResponseDto {
   genre: string;
   stock: number;
   rating: number;
+  createdAt: string;
+  updatedAt: string;
 
   static from(book: Book): BookResponseDto {
     return {
@@ -22,6 +24,8 @@ export class BookResponseDto {
       genre: book.genre,
       stock: book.stock,
       rating: book.rating,
+      createdAt: book.createdAt?.toISOString(),
+      updatedAt: book.updatedAt?.toISOString(),
     };
   }
 }

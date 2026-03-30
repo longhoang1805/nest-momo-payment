@@ -1,4 +1,18 @@
-export type Tab = 'users' | 'orders'
+export type Tab = 'users' | 'orders' | 'books'
+
+export interface Book {
+  id: number
+  title: string
+  author: string
+  price: number
+  description: string
+  coverImage: string
+  genre: string
+  stock: number
+  rating: number
+  createdAt: string
+  updatedAt: string
+}
 export type SortDir = 'asc' | 'desc'
 
 export const PAGE_SIZE = 10
