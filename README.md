@@ -158,6 +158,27 @@ Restart the backend after changing `.env`.
 
 ---
 
+## Admin Portal
+
+The admin panel is available at [http://localhost:5173/admin/login](http://localhost:5173/admin/login).
+
+A default super-admin account is auto-seeded on first backend startup:
+
+| Field    | Value                          |
+| -------- | ------------------------------ |
+| Email    | `superadmin-bookstore@yopmail.com` |
+| Password | `superadmin`                   |
+
+> The password is hashed with bcrypt and stored in the `admins` table. Change it after first login in production.
+
+### Admin Features
+
+- View all registered users with search and date filters
+- View all orders with search, status filter, and price range slider
+- Summary cards: total users, total orders, and total revenue (paid orders)
+
+---
+
 ## API Endpoints
 
 | Method | Path                        | Auth | Description                      |
